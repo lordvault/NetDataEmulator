@@ -57,12 +57,11 @@ def netdata_emulator():
     mem_avaliable = Sensor("mem.available", "MiB", timestamp, {"MemAvailable":available.__dict__} )
 
     #temperature
-    cpu = CPUTemperature()
-    temp = cpu.temperature
+    temp = CPUTemperature().temperature
     cpu_temp = Dimension("temp1", temp)
-    temperature = Sensor("sensors.cpu_thermal-virtual-0_temperature", "Celsius", timestamp, {"cpu_thermal-virtual-0_temp1":available.__dict__} )
+    temperature = Sensor("sensors.cpu_thermal-virtual-0_temperature", "Celsius", timestamp, {"cpu_thermal-virtual-0_temp1":cpu_temp.__dict__} )
 
-    return json.dumps({ cpu.name: cpu.__dict__ , net.name: net.__dict__, ram.name:ram.__dict__, mem_avaliable.name: mem_avaliable.__dict__})
+    return json.dumps({ cpu.name: cpu.__dict__ , net.name: net.__dict__, ram.name:ram.__dict__, mem_avaliable.name: mem_avaliable.__dict__, temperature.name: temperature.__dict__})
 
     
 if __name__ == "__main__":
