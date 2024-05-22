@@ -15,7 +15,7 @@ For the code solution, already exist a part implmented by raspberry team:
 
 Development Tasks: 
 
-[] - Create the flask service and publish hello world on port 19999 path /api/v1/allmetrics?format=json
-[] - adjust the data to allign the netdata format
-[] - Create an script to install the required python version and libraries.
+[x] - Create the flask service and publish hello world on port 19999 path /api/v1/allmetrics?format=json
+[x] - adjust the data to allign the netdata format
+[x] - Create an script to install the required python version and libraries.
 [] - Documentate the process on the read.me file.
