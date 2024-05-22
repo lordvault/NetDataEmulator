@@ -43,7 +43,7 @@ def netdata_emulator():
     #network 
     received = Dimension("received", psutil.net_io_counters().bytes_recv/125)
     sent = Dimension("sent", psutil.net_io_counters().bytes_sent/125)
-    net = Sensor("net.wlan", "kilobits/s", timestamp, {received.name: received.__dict__, sent.name: sent.__dict__} )
+    net = Sensor("net.wlan0", "kilobits/s", timestamp, {received.name: received.__dict__, sent.name: sent.__dict__} )
 
     #memory     
     free = Dimension("free", psutil.virtual_memory().free/1048576)
@@ -59,10 +59,21 @@ def netdata_emulator():
 
     #temperature
     temp = CPUTemperature().temperature
+    #temp = 12
     cpu_temp = Dimension("temp1", temp)
     temperature = Sensor("sensors.cpu_thermal-virtual-0_temperature", "Celsius", timestamp, {"cpu_thermal-virtual-0_temp1":cpu_temp.__dict__} )
 
-    return json.dumps({ cpu.name: cpu.__dict__ , net.name: net.__dict__, ram.name:ram.__dict__, mem_avaliable.name: mem_avaliable.__dict__, temperature.name: temperature.__dict__})
+    #cpu idle:
+    idle_dimension = Dimension("idle", 100 - psutil.cpu_percent(2))
+    idle = Sensor("system.cpu", "percentage", timestamp, {idle_dimension.name:idle_dimension.__dict__} )
+
+    #uptime
+
+    time_dimension = Dimension("uptime", time.time() - psutil.boot_time())
+    uptime = Sensor("system.uptime", "seconds", timestamp, {time_dimension.name:time_dimension.__dict__} )
+
+    return json.dumps({ cpu.name: cpu.__dict__ , net.name: net.__dict__, ram.name:ram.__dict__, mem_avaliable.name: mem_avaliable.__dict__, 
+                       temperature.name: temperature.__dict__, uptime.name: uptime.__dict__, idle.name: idle.__dict__})
 
     
 if __name__ == "__main__":
