@@ -2,8 +2,9 @@ from gpiozero import CPUTemperature
 from time import sleep, strftime, time
 from flask import Flask
 import json
-import os
 import psutil
+import calendar;
+import time;
 
 app = Flask(__name__)
 
@@ -29,8 +30,10 @@ class Dimension:
 
 @app.route("/")
 def netdata_emulator():
+    gmt = time.gmtime()
+    ts = calendar.timegm(gmt)
     
-    timestamp = 1716398603
+    timestamp = ts
 
     #CPU 
     cpu0 = Dimension("cpu0", psutil.cpu_freq().current)
