@@ -28,7 +28,7 @@ class Dimension:
         self.name = name
         self.value = value
 
-@app.route("/")
+@app.route("/api/v1/allmetrics")
 def netdata_emulator():
     gmt = time.gmtime()
     ts = calendar.timegm(gmt)
