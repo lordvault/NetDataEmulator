@@ -29,6 +29,7 @@ class Dimension:
         self.value = value
 
 @app.route("/api/v1/allmetrics")
+@app.route("/api/v1/allmetrics?format=json&help=no&types=no&timestamps=yes&names=yes&data=average")
 def netdata_emulator():
     gmt = time.gmtime()
     ts = calendar.timegm(gmt)
