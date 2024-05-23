@@ -52,9 +52,13 @@ def netdata_emulator():
         up = psutil.net_io_counters().bytes_sent
         dow = psutil.net_io_counters().bytes_recv
         some_download = psutil.net_io_counters().bytes_recv - last_download
-        data_to_download = some_download / amount_time
-        some_upload = psutil.net_io_counters().bytes_sent - last_upload 
-        data_to_upload = some_upload / amount_time
+        some_upload = last_upload - psutil.net_io_counters().bytes_sent
+        if amount_time > 0 : 
+            data_to_download = some_download / amount_time
+            data_to_upload = some_upload / amount_time
+        else: 
+            data_to_download = 0
+            data_to_upload = 0
         last_time = timestamp
         last_upload = up
         last_download = dow
