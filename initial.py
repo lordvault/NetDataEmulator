@@ -7,6 +7,9 @@ import calendar;
 import time;
 
 app = Flask(__name__)
+last_time = 0
+last_upload = 0
+last_download = 0
 
 class Sensor:    
     name = ''
@@ -41,11 +44,28 @@ def netdata_emulator():
     cpu = Sensor("cpu.cpufreq", "MHz", timestamp , {cpu0.name: cpu0.__dict__} )
 
     #network 
-    received = Dimension("received", psutil.net_io_counters().bytes_recv/125)
-    sent = Dimension("sent", psutil.net_io_counters().bytes_sent/125)
+    data_to_upload = 0
+    data_to_download = 0
+    global last_time, last_download, last_upload
+    if(last_time > 0):
+        amount_time = timestamp - last_time
+        up = psutil.net_io_counters().bytes_sent
+        dow = psutil.net_io_counters().bytes_recv
+        some_download = psutil.net_io_counters().bytes_recv - last_download
+        data_to_download = some_download / amount_time
+        some_upload = psutil.net_io_counters().bytes_sent - last_upload 
+        data_to_upload = some_upload / amount_time
+        last_time = timestamp
+        last_upload = up
+        last_download = dow
+
+    last_time = timestamp
+
+    received = Dimension("received", data_to_download/125)
+    sent = Dimension("sent", data_to_upload/125)
     net = Sensor("net.wlan0", "kilobits/s", timestamp, {received.name: received.__dict__, sent.name: sent.__dict__} )
 
-    #memory     
+    #memory
     free = Dimension("free", psutil.virtual_memory().free/1048576)
     used = Dimension("used", psutil.virtual_memory().used/1048576)
     cached = Dimension("cached", psutil.virtual_memory().cached/1048576)
@@ -53,7 +73,6 @@ def netdata_emulator():
     ram = Sensor("system.ram", "MiB", timestamp, {free.name: free.__dict__, used.name: used.__dict__, cached.name: cached.__dict__, buffers.name: buffers.__dict__} )
 
     #mem available
-    
     available = Dimension("avail", psutil.virtual_memory().available/1048576)
     mem_avaliable = Sensor("mem.available", "MiB", timestamp, {"MemAvailable":available.__dict__} )
 
