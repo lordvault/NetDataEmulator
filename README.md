@@ -23,7 +23,7 @@ For the code solution, already exist a part implmented by raspberry team:
 
 Install the dependencies
 ```sh
-/bin/bash install.sh
+pip install -r requirements.txt
 ```
 
 Run python program:
