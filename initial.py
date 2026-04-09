@@ -74,9 +74,9 @@ def net_sensor(timestamp, interface="default"):
 
     net_state[interface] = state
     
-    return Sensor(f"net.{interface}", "Mbps/s", timestamp, {
-        "received": {"name": "received", "value": data_to_download / 125000},
-        "sent": {"name": "sent", "value": data_to_upload / 125000}
+    return Sensor(f"net.{interface}", "kilobits/s", timestamp, {
+        "received": {"name": "received", "value": data_to_download / 125},
+        "sent": {"name": "sent", "value": data_to_upload / 125}
     })
 
 def system_ram_sensor(timestamp):
