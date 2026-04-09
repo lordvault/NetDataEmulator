@@ -1,13 +1,16 @@
 # NetData Emulator
 
-This proyect was created as solution to report from my RPI Zero W 2, the necessary data to be monitored on Home Assistant. The idea its emulate the published data from netdata to reuse the actual netdata integration in home assistant. To achieve this i require a flask server and use a couple of libraries.
+The project was updated and now works for all hardwarde running linux (debian based). The idea its emulate the published data from netdata to reuse the actual netdata integration in home assistant. To achieve this i require a flask server and use a couple of libraries. 
+
+Why? Because netdata consumes lot of resources and cpu, obviously netdata generates a lot of data, and create a database with the historic data, but i dont require it, i just need pure data to monitor on HomeAssistant, without generate a big impact over my hardware devices.
 
 ## Exposed sensors: 
  - CPU Usage
- - CPU Temperature
+ - CPU Temperature (/sys/class/thermal/thermal_zone0/temp) (validate it, sometimes thermal_zone0 doesnt exists but 1 or 2 exist)
  - RAM Total
  - RAM in Use
  - System Uptime
+ - Network speed (calculated)
 
 For the code solution, already exist a part implmented by raspberry team:
 - [temperature-log](https://projects.raspberrypi.org/en/projects/temperature-log/4)
@@ -19,7 +22,27 @@ For the code solution, already exist a part implmented by raspberry team:
 - [x] Create an script to install the required python version and libraries.
 - [x] Documentate the process on the readme.md file.
 
+## Requirements:
+
+- Python 3.13
+- Python pip
+
 ## Installation and run
+New versions of python require venv as mandatory, so here the steps to create and activate it.
+Install venv complement
+```sh
+apt install python3.XX-venv
+```
+
+Creates the venv, named myenv.
+```sh
+python3 -m venv myenv
+```
+
+Activates the venv to be able to install dependencies.
+```sh
+source myenv/bin/activate
+```
 
 Install the dependencies
 ```sh
