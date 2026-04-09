@@ -1,15 +1,11 @@
-from gpiozero import CPUTemperature
-from time import sleep, strftime, time
+import time
 from flask import Flask
 import json
 import psutil
-import calendar;
-import time;
+import calendar
 
 app = Flask(__name__)
-last_time = 0
-last_upload = 0
-last_download = 0
+net_state = {}
 
 class Sensor:    
     name = ''
@@ -23,14 +19,6 @@ class Sensor:
         self.last_updated = last_updated
         self.dimensions = dimensions
 
-class Dimension:
-    name = ""
-    value = 0
-
-    def __init__(self, name, value):
-        self.name = name
-        self.value = value
-
 @app.route("/api/v1/allmetrics")
 @app.route("/api/v1/allmetrics?format=json&help=no&types=no&timestamps=yes&names=yes&data=average")
 def netdata_emulator():
@@ -38,67 +26,80 @@ def netdata_emulator():
     ts = calendar.timegm(gmt)
     
     timestamp = ts
+    sensors = []
 
-    #CPU 
-    cpu0 = Dimension("cpu0", psutil.cpu_freq().current)
-    cpu = Sensor("cpu.cpufreq", "MHz", timestamp , {cpu0.name: cpu0.__dict__} )
+    sensors.extend(cpu_sensors(timestamp))
+    sensors.append(net_sensor(timestamp))
+    sensors.extend(system_ram_sensor(timestamp))
+    sensors.append(get_cpu_temp(timestamp))
+    sensors.append(get_uptime(timestamp))
 
-    #network 
-    data_to_upload = 0
+    return json.dumps({sensor.name: sensor.__dict__ for sensor in sensors})
+
+def cpu_sensors(timestamp):
+    cpu0_freq = psutil.cpu_freq().current
+    cpu = Sensor("cpu.cpufreq", "MHz", timestamp, {"cpu0": {"name": "cpu0", "value": cpu0_freq}})
+    idle = Sensor("system.cpu", "percentage", timestamp, {"idle": {"name": "idle", "value": 100 - psutil.cpu_percent(2)}})
+    return cpu, idle
+
+def net_sensor(timestamp, interface="default"):
+    global net_state
+
+    net_io_per_nic = psutil.net_io_counters(pernic=True)
+
+    if interface == "default":
+        interface = next((nic for nic in ["eth0", "wlan0"] if nic in net_io_per_nic), None)
+        if interface is None and net_io_per_nic:
+            interface = next(iter(net_io_per_nic))
+
+    if interface is None or interface not in net_io_per_nic:
+        return Sensor("net.unknown", "Mbps/s", timestamp, {})
+
+    current_up = net_io_per_nic[interface].bytes_sent
+    current_dow = net_io_per_nic[interface].bytes_recv
+
+    state = net_state.get(interface, {"last_time": 0, "last_upload": 0, "last_download": 0})
+
     data_to_download = 0
-    global last_time, last_download, last_upload
-    if(last_time > 0):
-        amount_time = timestamp - last_time
-        up = psutil.net_io_counters().bytes_sent
-        dow = psutil.net_io_counters().bytes_recv
-        some_download = psutil.net_io_counters().bytes_recv - last_download
-        some_upload = last_upload - psutil.net_io_counters().bytes_sent
-        if amount_time > 0 : 
-            data_to_download = some_download / amount_time
-            data_to_upload = some_upload / amount_time
-        else: 
-            data_to_download = 0
-            data_to_upload = 0
-        last_time = timestamp
-        last_upload = up
-        last_download = dow
+    data_to_upload = 0
 
-    last_time = timestamp
+    if state["last_time"] > 0:
+        amount_time = timestamp - state["last_time"]
+        if amount_time > 0:
+            data_to_download = (current_dow - state["last_download"]) / amount_time
+            data_to_upload = (current_up - state["last_upload"]) / amount_time
+        state["last_upload"] = current_up
+        state["last_download"] = current_dow
+    state["last_time"] = timestamp
 
-    received = Dimension("received", data_to_download/125)
-    sent = Dimension("sent", data_to_upload/125)
-    net = Sensor("net.wlan0", "kilobits/s", timestamp, {received.name: received.__dict__, sent.name: sent.__dict__} )
+    net_state[interface] = state
+    
+    return Sensor(f"net.{interface}", "Mbps/s", timestamp, {
+        "received": {"name": "received", "value": data_to_download / 125000},
+        "sent": {"name": "sent", "value": data_to_upload / 125000}
+    })
 
-    #memory
-    free = Dimension("free", psutil.virtual_memory().free/1048576)
-    used = Dimension("used", psutil.virtual_memory().used/1048576)
-    cached = Dimension("cached", psutil.virtual_memory().cached/1048576)
-    buffers = Dimension("buffers", psutil.virtual_memory().buffers/1048576)
-    ram = Sensor("system.ram", "MiB", timestamp, {free.name: free.__dict__, used.name: used.__dict__, cached.name: cached.__dict__, buffers.name: buffers.__dict__} )
+def system_ram_sensor(timestamp):
+    vm = psutil.virtual_memory()
+    ram = Sensor("system.ram", "MiB", timestamp, {
+        "free": {"name": "free", "value": vm.free / 1048576},
+        "used": {"name": "used", "value": vm.used / 1048576},
+        "cached": {"name": "cached", "value": vm.cached / 1048576},
+        "buffers": {"name": "buffers", "value": vm.buffers / 1048576}
+    })
 
-    #mem available
-    available = Dimension("avail", psutil.virtual_memory().available/1048576)
-    mem_avaliable = Sensor("mem.available", "MiB", timestamp, {"MemAvailable":available.__dict__} )
+    mem_available = Sensor("mem.available", "MiB", timestamp, {"MemAvailable": {"name": "avail", "value": vm.available / 1048576}})
 
-    #temperature
-    temp = CPUTemperature().temperature
-    #temp = 12
-    cpu_temp = Dimension("temp1", temp)
-    temperature = Sensor("sensors.cpu_thermal-virtual-0_temperature", "Celsius", timestamp, {"cpu_thermal-virtual-0_temp1":cpu_temp.__dict__} )
+    return ram, mem_available
 
-    #cpu idle:
-    idle_dimension = Dimension("idle", 100 - psutil.cpu_percent(2))
-    idle = Sensor("system.cpu", "percentage", timestamp, {idle_dimension.name:idle_dimension.__dict__} )
+def get_cpu_temp(timestamp):
+    with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
+        temp = float(f.read()) / 1000
+    return Sensor("sensors.cpu_thermal-virtual-0_temperature", "Celsius", timestamp, {"cpu_thermal-virtual-0_temp1": {"name": "temp1", "value": temp}})
 
-    #uptime
-
-    time_dimension = Dimension("uptime", time.time() - psutil.boot_time())
-    uptime = Sensor("system.uptime", "seconds", timestamp, {time_dimension.name:time_dimension.__dict__} )
-
-    return json.dumps({ cpu.name: cpu.__dict__ , net.name: net.__dict__, ram.name:ram.__dict__, mem_avaliable.name: mem_avaliable.__dict__, 
-                       temperature.name: temperature.__dict__, uptime.name: uptime.__dict__, idle.name: idle.__dict__})
-
+def get_uptime(timestamp):
+    uptime = time.time() - psutil.boot_time()
+    return Sensor("system.uptime", "seconds", timestamp, {"uptime": {"name": "uptime", "value": uptime}})
     
 if __name__ == "__main__":
     app.run(debug=False, host='0.0.0.0', port=19999)
-
